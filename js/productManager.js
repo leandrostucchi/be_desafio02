@@ -1,16 +1,14 @@
 const analiza = true;
 const debuguear = (analiza,leyenda) => { if (analiza) {console.log(leyenda) }}
 
+import { promises as fs } from "fs";
 
 class productManager{
     static id = 0;        
 
     constructor (){
+        this.path = './archivo.txt';
         this.products= [];
-    }
-
-    getExisteCodigo(code){
-        return this.products.some(x=> x.code === code);
     }
 
     validarDatos(tittle,description,price,thumbnail,code,stock){
@@ -20,6 +18,7 @@ class productManager{
         mensajes += this.controlDatos(thumbnail,"String");
         mensajes += this.controlDatos(code,"String");
         mensajes += this.controlDatos(stock,"Number");
+        mensajes += this.getExisteCodigo(code);
         return mensajes;
     }
 
@@ -49,38 +48,109 @@ class productManager{
         return true;
     }
 
-
-
     addProduct(tittle,description,price,thumbnail,code,stock){
         let mensaje = this.validarDatos(tittle,description,price,thumbnail,code,stock);
         if(mensaje == ''){
-            if (!this.getExisteCodigo(code)) {
-                productManager.id++;
-                this.products.push({tittle,description,price,thumbnail,code,stock,id: productManager.id})
-            }else{
-                console.log(`codigo repetido ${code}`);
-            }
+            productManager.id++;
+            this.products.push({tittle,description,price,thumbnail,code,stock,id: productManager.id});
+            this.addFile(this.path,this.products,'Se inserto el registro');
         }else{
             console.log(`Mensaje de error: ${mensaje}`);
         }
     }
 
-    getProductById(id){
-        return this.products.some(x=> x.id === id) ? this.products.find(x=> x.id === id) : `Id Not Found ${id}` ;
+    borrarArchivo = async() => {
+        await fs.unlink(this.path);
     }
+
+    updProduct(tittle,description,price,thumbnail,code,stock,id,productos){
+        let productsOld =productos;
+        let productsNew = [];
+        let mensaje = this.validarDatos(tittle,description,price,thumbnail,code,stock);
+         if(mensaje == ''){
+            productsOld.push({tittle,description,price,thumbnail,code,stock,id});
+            for (let index = 0; index < productsOld.length; index++) {
+                productsNew.push(productsOld[index])
+             }
+             this.addFile(this.path,productsNew,'Se actualizo el registro');             
+        }
+    }
+
+
+    readProducts = async()=>{
+        let resultado = await fs.readFile(this.path,"utf-8");            
+        return JSON.parse(resultado);
+    }
+
+    getProducts = async ()=> {
+       let productos = await this.readProducts();
+       console.log(productos);
+    }
+
+    readProductByID= async(id) => {
+        let producto =  await this.readProducts();
+        return producto.some(x=> x.id === id) ?  producto.find(x=> x.id === id) : `Id Not Found ${id}`;
+    }
+
+    getExisteCodigo= (code) => {
+        let producto = this.products;
+        return producto.some(x=> x.code === code) ? `codigo repetido ${code}` : '';
+    }
+
+    readProductWhitOutID= async(id) => {
+        let producto =  await this.readProducts();
+        return producto.filter(x=> x.id !== id);
+    }
+
+    getProductById = async(id) => {
+        let producto =  await this.readProductByID(id);
+        console.log(producto);
+    }
+
+    addFile = async (archivo,registro,mensaje)=>{
+        let log =JSON.stringify(registro);
+        await fs.writeFile(archivo, log)
+            .then(() => console.log(`${mensaje}`))
+            .catch((err) => console.log(err))
+    }
+
+    // updFile = async (archivo,registro,mensaje)=>{
+    //     let log =JSON.stringify(registro);
+    //     await fs.appendFile(archivo, log)
+    //         .then(() => console.log(`${mensaje}`))
+    //         .catch((err) => console.log(err))
+    // }
+
+
+    deleteProduct = async(id) =>{
+        let producto =  await this.readProductWhitOutID(id);
+        if(producto) this.addFile(this.path,producto, `Elimino Id ${id}`);
+    }
+
+    updateProduct = async(tittle,description,price,thumbnail,code,stock,id) =>{        
+        this.deleteProduct(id);
+        let productos =  await this.readProducts();
+        await this.updProduct(tittle,description,price,thumbnail,code,stock,id,productos);
+     }
+
 }
 
 
 
-
-
-
 let productoNuevo = new productManager();
-debuguear(analiza,productoNuevo);
+//productoNuevo.borrarArchivo();
+
 // productoNuevo.addProduct('producto prueba1','Este es un producto prueba1',200,'Sin imagen1','abc123',25);
 // productoNuevo.addProduct('producto prueba2','Este es un producto prueba2',200,'Sin imagen2','abc124',25);
- productoNuevo.addProduct('producto prueba3','Este es un producto prueba3',200,'Sin imagen3','abc123',25);
-//productoNuevo.addProduct('3','Este es un producto prueba3',0,'Sin3','abc121',0);
-debuguear(analiza,productoNuevo);
-// debuguear(analiza,productoNuevo.getProductById(1));
-// debuguear(analiza,productoNuevo.getProductById(3));
+// productoNuevo.addProduct('producto prueba3','Este es un producto prueba3',200,'Sin imagen3','abc121',25);
+// productoNuevo.addProduct('producto prueba3','Este es un producto prueba3',200,'Sin imagen3','abc123',25);
+
+// productoNuevo.getProducts();
+
+// productoNuevo.getProductById(1);
+// productoNuevo.getProductById(5);
+
+//productoNuevo.deleteProduct(3);
+
+
+productoNuevo.updateProduct('producto prueba2','Este es un producto prueba2',400,'Sin','abc124',25,2);
